@@ -1,0 +1,11 @@
+services:
+  redis:
+    image: redis:7-alpine   # pin a version instead of `latest` implicitly
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data     # persist data across container restarts
+
+volumes:
+  redis_data:
