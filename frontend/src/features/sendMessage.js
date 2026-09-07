@@ -1,12 +1,12 @@
 
 import api from "../../utils/axios.js"
-async function sendMessage(payload){
+async function sendMessage(payload) {
     try {
-        const {data} = await api.post("/api/agent/chat",payload)
-        return data.me
+        const { data } = await api.post("/api/agent/chat", payload)
+        return data
     } catch (error) {
-        console.log(error)
-        return error
+        console.error("Failed to send message:", error)
+        throw error
     }
 }
 

@@ -4,7 +4,7 @@ export const getModel = async (agent) => {
   // Lazily instantiate or ensure key availability
   const groq = new ChatGroq({
     apiKey: process.env.GROQ_API_KEY,
-    model: "llama-3.3-70b-versatile", // Update to your target Groq model string
+    model: process.env.GROQ_MODEL || "qwen/qwen3.8-27b",
     temperature: 0.7,
   });
 

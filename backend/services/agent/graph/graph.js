@@ -19,24 +19,30 @@ workflow.addNode("imageGen",iamgeGenAgent)
 workflow.addNode("coding",codingAgent)
 
 workflow.addEdge("__start__","router")
-workflow.addConditionalEdges("router",(state)=>{
-    switch (state.agent){
+workflow.addConditionalEdges("router", (state) => {
+    const agent = (state.agent || "").toLowerCase().trim();
+    switch (agent) {
       case "chat":
-        return "chat"
+        return "chat";
       case "search":
-        return "search"
+      case "websearch":
+        return "search";
       case "pdf":
-        return "pdf"
+        return "pdf";
       case "ppt":
-        return "ppt"
-      case "imageGen":
-        return "imageGen"
+      case "presentation":
+        return "ppt";
+      case "imagegen":
+      case "image":
+      case "images":
+        return "imageGen";
       case "coding":
-        return "coding"
+      case "code":
+        return "coding";
       default:
-        return "chat"
+        return "chat";
     }
-},{
+}, {
     chat:"chat",
     search:"search",
     pdf:"pdf",

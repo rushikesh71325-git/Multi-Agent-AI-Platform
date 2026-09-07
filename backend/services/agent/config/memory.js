@@ -1,5 +1,5 @@
-import redis from "../../../shared/redis/redis"
-import { getMessages } from "../utils/getMessages"
+import redis from "../../../shared/redis/redis.js"
+import { getMessages } from "../utils/getMessages.js"
 
 export const getMemory = async (conversationId) => {
     const key = `memory-${conversationId}`
@@ -14,6 +14,7 @@ export const getMemory = async (conversationId) => {
 }
 
 export const addMessage = async (conversationId, role, content) => {
+    if (!content) return;
     const key = `memory-${conversationId}`;
     const rewMessages = await redis.get(key)
     const messages = rewMessages ? JSON.parse(rewMessages) : []

@@ -1,4 +1,4 @@
-import { HumanMessage, SystemMessage } from "@langchain/core/messages";
+import { HumanMessage, SystemMessage, AIMessage } from "@langchain/core/messages";
 import { getModel } from "../config/llmModels.js";
 import { getMemory } from "../config/memory.js";
 
@@ -40,6 +40,7 @@ Rules:
         new SystemMessage(systemPrompt)
     ]
     history.forEach(message => {
+        if (!message || !message.content) return;
         if (message.role == "user") {
             messages.push(new HumanMessage(message.content))
         }
@@ -53,6 +54,6 @@ Rules:
 
     return {
         ...state,
-        aiResponse: response.text
+        aiResponse: response.content || response.text
     };
 };

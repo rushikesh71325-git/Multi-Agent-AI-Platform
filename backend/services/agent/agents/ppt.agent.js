@@ -1,3 +1,413 @@
-export const pptAgent = async () =>{
-    
+import pptxgen from "pptxgenjs";
+import fs from "fs";
+import path from "path";
+import { HumanMessage, SystemMessage } from "@langchain/core/messages";
+import { getModel } from "../config/llmModels.js";
+
+export const pptAgent = async (state) => {
+    try {
+        const llm = await getModel("chat");
+        const prompt = `
+You are a world-class McKinsey & Apple-level presentation designer and executive slide deck creator.
+Generate a structured JSON outline for an exceptional 5-slide presentation on the user's topic.
+
+Return ONLY a valid JSON object matching the exact schema below, and NO markdown code block wrappers or conversational commentary:
+{
+  "title": "Compelling Presentation Title",
+  "subtitle": "Clear, engaging subtitle summarizing the core message",
+  "category": "Topic Category (e.g. Artificial Intelligence, Strategy, Technology)",
+  "theme": {
+    "primaryColor": "6366F1",
+    "accentColor": "06B6D4",
+    "darkBg": "0B0F19",
+    "cardBg": "1E293B",
+    "lightCardBg": "FFFFFF"
+  },
+  "slides": [
+    {
+      "slideNumber": 1,
+      "title": "Title of Slide (e.g. Executive Summary)",
+      "takeaway": "Key takeaway or thesis statement in one punchy sentence",
+      "cards": [
+        {
+          "heading": "First Core Pillar",
+          "bullets": [
+            "Specific insight with factual depth",
+            "Measurable impact or key detail"
+          ]
+        },
+        {
+          "heading": "Second Core Pillar",
+          "bullets": [
+            "Actionable strategy or technical explanation",
+            "Key advantage or market trend"
+          ]
+        },
+        {
+          "heading": "Third Core Pillar",
+          "bullets": [
+            "Future horizon or strategic recommendation",
+            "Closing impact metric"
+          ]
+        }
+      ]
+    }
+  ]
 }
+
+Ensure you provide 4 to 5 content slides (in addition to the title) with 2 to 3 detailed cards per slide.
+
+User Topic: ${state.prompt}
+`;
+
+        const response = await llm.invoke([
+            new SystemMessage("You are an expert executive presentation designer. Return strictly valid raw JSON only."),
+            new HumanMessage(prompt)
+        ]);
+
+        const rawText = (response.content || response.text || "").trim();
+        const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+        const jsonString = jsonMatch ? jsonMatch[0] : rawText;
+        const presData = JSON.parse(jsonString);
+
+        // Build PPTX using pptxgenjs
+        const pres = new pptxgen();
+        pres.layout = "LAYOUT_16x9";
+        pres.author = "Saksham AI";
+        pres.company = "Saksham Multi-Agent Platform";
+        pres.title = presData.title || "Executive Presentation";
+
+        const primaryColor = presData.theme?.primaryColor || "6366F1";
+        const accentColor = presData.theme?.accentColor || "06B6D4";
+        const darkBg = presData.theme?.darkBg || "0B0F19";
+
+        // ==================== 1. TITLE COVER SLIDE ====================
+        const titleSlide = pres.addSlide();
+        titleSlide.background = { color: darkBg };
+
+        // Subtle gradient top-accent band
+        titleSlide.addShape(pres.ShapeType.rect, {
+            x: 0,
+            y: 0,
+            w: 13.33,
+            h: 0.18,
+            fill: { color: primaryColor },
+        });
+
+        // Category Tag Badge
+        if (presData.category) {
+            titleSlide.addShape(pres.ShapeType.roundRect, {
+                x: 1.0,
+                y: 1.6,
+                w: 2.8,
+                h: 0.45,
+                fill: { color: primaryColor },
+                rectRadius: 0.2,
+            });
+            titleSlide.addText((presData.category || "EXECUTIVE BRIEF").toUpperCase(), {
+                x: 1.0,
+                y: 1.6,
+                w: 2.8,
+                h: 0.45,
+                fontSize: 11,
+                fontFace: "Arial",
+                color: "FFFFFF",
+                bold: true,
+                align: "center",
+                valign: "middle",
+            });
+        }
+
+        // Main Presentation Title
+        titleSlide.addText(presData.title || "Executive Presentation", {
+            x: 1.0,
+            y: 2.4,
+            w: 11.3,
+            h: 1.6,
+            fontSize: 42,
+            fontFace: "Arial",
+            color: "FFFFFF",
+            bold: true,
+            lineSpacing: 46,
+        });
+
+        // Subtitle
+        if (presData.subtitle) {
+            titleSlide.addText(presData.subtitle, {
+                x: 1.0,
+                y: 4.2,
+                w: 10.5,
+                h: 1.0,
+                fontSize: 20,
+                fontFace: "Arial",
+                color: "94A3B8",
+                lineSpacing: 26,
+            });
+        }
+
+        // Divider Accent Line
+        titleSlide.addShape(pres.ShapeType.line, {
+            x: 1.0,
+            y: 5.6,
+            w: 4.0,
+            h: 0,
+            line: { color: accentColor, width: 3 },
+        });
+
+        // Footer Meta on Cover
+        titleSlide.addText("Generated by Saksham Multi-Agent AI Platform • Confidential & Executive", {
+            x: 1.0,
+            y: 6.4,
+            w: 11.3,
+            h: 0.4,
+            fontSize: 11,
+            fontFace: "Arial",
+            color: "64748B",
+        });
+
+        // ==================== 2. CONTENT SLIDES ====================
+        const slides = presData.slides || [];
+        slides.forEach((slideItem, index) => {
+            const slide = pres.addSlide();
+            slide.background = { color: "F8FAFC" };
+
+            // Header Banner
+            slide.addShape(pres.ShapeType.rect, {
+                x: 0,
+                y: 0,
+                w: 13.33,
+                h: 1.25,
+                fill: { color: darkBg },
+            });
+
+            // Accent stripe under header
+            slide.addShape(pres.ShapeType.rect, {
+                x: 0,
+                y: 1.25,
+                w: 13.33,
+                h: 0.08,
+                fill: { color: primaryColor },
+            });
+
+            // Slide Number Pill in Header
+            slide.addShape(pres.ShapeType.roundRect, {
+                x: 0.8,
+                y: 0.35,
+                w: 0.8,
+                h: 0.55,
+                fill: { color: primaryColor },
+                rectRadius: 0.15,
+            });
+            slide.addText(`0${index + 1}`, {
+                x: 0.8,
+                y: 0.35,
+                w: 0.8,
+                h: 0.55,
+                fontSize: 14,
+                fontFace: "Arial",
+                color: "FFFFFF",
+                bold: true,
+                align: "center",
+                valign: "middle",
+            });
+
+            // Slide Title
+            slide.addText(slideItem.title || `Section ${index + 1}`, {
+                x: 1.8,
+                y: 0.3,
+                w: 10.5,
+                h: 0.65,
+                fontSize: 22,
+                fontFace: "Arial",
+                color: "FFFFFF",
+                bold: true,
+                valign: "middle",
+            });
+
+            // Key Takeaway Quote Banner (if present)
+            let contentStartY = 1.55;
+            if (slideItem.takeaway) {
+                slide.addShape(pres.ShapeType.roundRect, {
+                    x: 0.8,
+                    y: 1.5,
+                    w: 11.73,
+                    h: 0.7,
+                    fill: { color: "EEF2FF" },
+                    line: { color: "C7D2FE", width: 1 },
+                    rectRadius: 0.1,
+                });
+                slide.addText(`💡 Key Takeaway: ${slideItem.takeaway}`, {
+                    x: 1.1,
+                    y: 1.5,
+                    w: 11.1,
+                    h: 0.7,
+                    fontSize: 13,
+                    fontFace: "Arial",
+                    color: "3730A3",
+                    bold: true,
+                    valign: "middle",
+                });
+                contentStartY = 2.4;
+            }
+
+            // Cards or Bullets Layout
+            const cards = slideItem.cards || [];
+            if (cards.length > 0) {
+                const totalCards = Math.min(cards.length, 3);
+                const gap = 0.35;
+                const totalWidth = 11.73;
+                const cardWidth = (totalWidth - (totalCards - 1) * gap) / totalCards;
+                const cardHeight = 7.0 - contentStartY - 0.55;
+
+                cards.slice(0, 3).forEach((c, ci) => {
+                    const cardX = 0.8 + ci * (cardWidth + gap);
+
+                    // Card Outer Box
+                    slide.addShape(pres.ShapeType.roundRect, {
+                        x: cardX,
+                        y: contentStartY,
+                        w: cardWidth,
+                        h: cardHeight,
+                        fill: { color: "FFFFFF" },
+                        line: { color: "E2E8F0", width: 1.2 },
+                        rectRadius: 0.15,
+                    });
+
+                    // Card Top Color Accent Strip
+                    slide.addShape(pres.ShapeType.roundRect, {
+                        x: cardX,
+                        y: contentStartY,
+                        w: cardWidth,
+                        h: 0.45,
+                        fill: { color: ci === 0 ? primaryColor : ci === 1 ? accentColor : "3B82F6" },
+                        rectRadius: 0.15,
+                    });
+
+                    // Card Heading
+                    slide.addText(c.heading || `Pillar ${ci + 1}`, {
+                        x: cardX + 0.2,
+                        y: contentStartY + 0.6,
+                        w: cardWidth - 0.4,
+                        h: 0.55,
+                        fontSize: 16,
+                        fontFace: "Arial",
+                        color: "0F172A",
+                        bold: true,
+                    });
+
+                    // Bullets inside card
+                    const cardBullets = (c.bullets || []).map((b) => ({
+                        text: b,
+                        options: { bullet: true, fontSize: 13, color: "475569", breakLine: true },
+                    }));
+
+                    if (cardBullets.length > 0) {
+                        slide.addText(cardBullets, {
+                            x: cardX + 0.2,
+                            y: contentStartY + 1.25,
+                            w: cardWidth - 0.4,
+                            h: cardHeight - 1.4,
+                            fontFace: "Arial",
+                            lineSpacing: 22,
+                        });
+                    }
+                });
+            } else {
+                // Fallback traditional bullet list
+                slide.addShape(pres.ShapeType.roundRect, {
+                    x: 0.8,
+                    y: contentStartY,
+                    w: 11.73,
+                    h: 4.8,
+                    fill: { color: "FFFFFF" },
+                    line: { color: "E2E8F0", width: 1 },
+                    rectRadius: 0.15,
+                });
+
+                const bullets = (slideItem.bullets || []).map((b) => ({
+                    text: b,
+                    options: { bullet: true, fontSize: 16, color: "334155", breakLine: true },
+                }));
+
+                if (bullets.length > 0) {
+                    slide.addText(bullets, {
+                        x: 1.2,
+                        y: contentStartY + 0.4,
+                        w: 10.9,
+                        h: 4.0,
+                        fontFace: "Arial",
+                        lineSpacing: 28,
+                    });
+                }
+            }
+
+            // Footer
+            slide.addText(`${presData.title || "Presentation"} • Slide ${index + 1} of ${slides.length}`, {
+                x: 0.8,
+                y: 7.0,
+                w: 11.73,
+                h: 0.35,
+                fontSize: 10,
+                fontFace: "Arial",
+                color: "94A3B8",
+            });
+        });
+
+        // Save Presentation file locally
+        const presentationsDir = path.join(process.cwd(), "public", "presentations");
+        if (!fs.existsSync(presentationsDir)) {
+            fs.mkdirSync(presentationsDir, { recursive: true });
+        }
+
+        const safeTitle = (presData.title || "Presentation").replace(/[^a-zA-Z0-9]/g, "_");
+        const fileName = `${Date.now()}_${safeTitle}.pptx`;
+        const filePath = path.join(presentationsDir, fileName);
+        await pres.writeFile({ fileName: filePath });
+
+        const gatewayUrl = process.env.GATEWAY_URL || "http://localhost:8000";
+        const downloadUrl = `${gatewayUrl}/api/agent/download-ppt/${fileName}`;
+        const relativeDownloadUrl = `/api/agent/download-ppt/${fileName}`;
+
+        // Markdown summary for chat
+        let markdownOutline = `### 📊 ${presData.title}\n\n*${presData.subtitle || "Executive Presentation Deck"}*\n\n`;
+        slides.forEach((s, i) => {
+            markdownOutline += `**Slide ${i + 1}: ${s.title}**\n`;
+            if (s.takeaway) markdownOutline += `> *Takeaway:* ${s.takeaway}\n\n`;
+            if (s.cards && s.cards.length > 0) {
+                s.cards.forEach((c) => {
+                    markdownOutline += `- **${c.heading}**: ${(c.bullets || []).join("; ")}\n`;
+                });
+            } else if (s.bullets) {
+                s.bullets.forEach((b) => {
+                    markdownOutline += `- ${b}\n`;
+                });
+            }
+            markdownOutline += "\n";
+        });
+        markdownOutline += `\n📥 **[Download Presentation (.pptx)](${downloadUrl})**`;
+
+        const artifact = {
+            type: "ppt",
+            title: presData.title,
+            language: "json",
+            content: JSON.stringify(presData, null, 2),
+            presentationData: presData,
+            downloadUrl,
+            relativeDownloadUrl,
+            fileName,
+        };
+
+        return {
+            ...state,
+            aiResponse: markdownOutline,
+            presentation: presData,
+            artifact,
+        };
+    } catch (error) {
+        console.error("PPT Generation Error:", error);
+        return {
+            ...state,
+            aiResponse: `Failed to generate presentation: ${error.message}. Please try again with a specific presentation topic.`,
+        };
+    }
+};
