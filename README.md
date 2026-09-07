@@ -68,7 +68,7 @@ A production-ready, enterprise-grade **Multi-Agent AI Platform** built with a re
 ## 📂 Project Structure
 
 ```
-saksham-ai/
+yug-ai/
 ├── backend/
 │   ├── gateway/                  # API Gateway & Reverse Proxy (Port 8000)
 │   │   ├── index.js
