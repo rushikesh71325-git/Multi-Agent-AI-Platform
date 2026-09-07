@@ -1,4 +1,4 @@
-# ⚡ Saksham AI — Production Multi-Agent AI Platform
+# ⚡ Yug AI — Production Multi-Agent AI Platform
 
 A production-ready, enterprise-grade **Multi-Agent AI Platform** built with a resilient microservices architecture, LangGraph multi-agent state machines, Groq high-speed LLM acceleration, RAG vector retrieval, PowerPoint presentation compilation, real-time image synthesis, and an interactive **Live Artifact Preview** side panel.
 
